@@ -12,6 +12,7 @@
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/mesh.h>
+#include <bluetooth/conn.h>
 
 #include "board.h"
 
@@ -105,6 +106,29 @@ static void gen_onoff_set(struct bt_mesh_model *model,
 	gen_onoff_get(model, ctx, buf);
 }
 
+static void connected(struct bt_conn *conn, u8_t err)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	if (err) {
+		LOG_ERR("Connection failed (err %u)", err);
+		return;
+	}
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	LOG_INF("Connect index %u, address %s", bt_conn_index(conn), log_strdup(addr));
+}
+
+static void disconnected(struct bt_conn *conn, u8_t reason)
+{
+	LOG_INF("Disconnect index %u (reason %u)", bt_conn_index(conn), reason);
+}
+
+static struct bt_conn_cb conn_callbacks = {
+	.connected = connected,
+	.disconnected = disconnected,
+};
+
 static const struct bt_mesh_model_op gen_onoff_op[] = {
 	{ BT_MESH_MODEL_OP_2(0x82, 0x01), 0, gen_onoff_get },
 	{ BT_MESH_MODEL_OP_2(0x82, 0x02), 2, gen_onoff_set },
@@ -193,6 +217,8 @@ void main(void)
 	if (err) {
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 	}
+
+	bt_conn_cb_register(&conn_callbacks);
 
 	while (1) {
 		board_led_trigger(LED_ALIAS_INDICATOR);
