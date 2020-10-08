@@ -6,7 +6,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <misc/printk.h>
+#include <sys/printk.h>
+#include <sys/byteorder.h>
 #include <logging/log.h>
 #include <settings/settings.h>
 
@@ -52,7 +53,7 @@ static void gen_onoff_get(struct bt_mesh_model *model,
 	NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
 	led_state_t old_state;
 
-	board_led_get(LED_ALIAS_BULB, &old_state);
+	old_state = board_led_get(LED_ALIAS_BULB);
 
 	LOG_INF("addr 0x%04x current state %s", bt_mesh_model_elem(model)->addr, (LED_STATE_ON == old_state) ? "on" : "off");
 
@@ -72,7 +73,7 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
 
 	LOG_INF("addr 0x%04x set to %s", bt_mesh_model_elem(model)->addr, (LED_STATE_ON == new_state) ? "on" : "off");
 
-	board_led_get(LED_ALIAS_BULB, &old_state);
+	old_state = board_led_get(LED_ALIAS_BULB);
 	if (old_state == new_state) {
 		LOG_INF("no need to update");
 		return;
@@ -106,7 +107,7 @@ static void gen_onoff_set(struct bt_mesh_model *model,
 	gen_onoff_get(model, ctx, buf);
 }
 
-static void connected(struct bt_conn *conn, u8_t err)
+static void connected(struct bt_conn *conn, uint8_t err)
 {
 	char addr[BT_ADDR_LE_STR_LEN];
 
@@ -119,7 +120,7 @@ static void connected(struct bt_conn *conn, u8_t err)
 	LOG_INF("Connect index %u, address %s", bt_conn_index(conn), log_strdup(addr));
 }
 
-static void disconnected(struct bt_conn *conn, u8_t reason)
+static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
 	LOG_INF("Disconnect index %u (reason %u)", bt_conn_index(conn), reason);
 }
@@ -152,14 +153,14 @@ static const struct bt_mesh_comp comp = {
 	.elem_count = ARRAY_SIZE(elements),
 };
 
-static int output_number(bt_mesh_output_action_t action, u32_t number)
+static int output_number(bt_mesh_output_action_t action, uint32_t number)
 {
 	LOG_INF("OOB Number: %u", number);
 
 	return 0;
 }
 
-static void prov_complete(u16_t net_idx, u16_t addr)
+static void prov_complete(uint16_t net_idx, uint16_t addr)
 {
 	LOG_INF("Provisionee Index: %u", net_idx);
 }
@@ -221,7 +222,7 @@ void main(void)
 	bt_conn_cb_register(&conn_callbacks);
 
 	while (1) {
+		k_msleep(700);
 		board_led_trigger(LED_ALIAS_INDICATOR);
-		k_sleep(1000);
 	}
 }

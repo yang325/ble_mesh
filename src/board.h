@@ -12,5 +12,5 @@ typedef enum {
 
 void board_init(void);
 void board_led_set(led_alias_t led, led_state_t new_state);
-void board_led_get(led_alias_t led, led_state_t *old_state);
+led_state_t board_led_get(led_alias_t led);
 void board_led_trigger(led_alias_t led);
