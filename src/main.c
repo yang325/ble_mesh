@@ -15,7 +15,12 @@
 #include <bluetooth/mesh.h>
 #include <bluetooth/conn.h>
 
-#include "board.h"
+typedef enum {
+    LED_STATE_ON,
+    LED_STATE_OFF
+} led_state_t;
+
+static led_state_t led0_state = LED_STATE_OFF;
 
 LOG_MODULE_REGISTER(main);
 
@@ -31,14 +36,11 @@ static void gen_onoff_get(struct bt_mesh_model *model,
 			  struct net_buf_simple *buf)
 {
 	NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
-	led_state_t old_state;
 
-	old_state = board_led_get(LED_ALIAS_BULB);
-
-	LOG_INF("addr 0x%04x current state %s", bt_mesh_model_elem(model)->addr, (LED_STATE_ON == old_state) ? "on" : "off");
+	LOG_INF("addr 0x%04x current state %s", bt_mesh_model_elem(model)->addr, (LED_STATE_ON == led0_state) ? "on" : "off");
 
 	bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_2(0x82, 0x04));
-	net_buf_simple_add_u8(&msg, (LED_STATE_ON == old_state) ? 0x01 : 0x00);
+	net_buf_simple_add_u8(&msg, (LED_STATE_ON == led0_state) ? 0x01 : 0x00);
 	bt_mesh_model_send(model, ctx, &msg, NULL, NULL);
 }
 
@@ -47,18 +49,14 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
 				struct net_buf_simple *buf)
 {
 	struct net_buf_simple *msg;
-	led_state_t old_state, new_state;
 
-	new_state = (0x01 == net_buf_simple_pull_u8(buf)) ? LED_STATE_ON : LED_STATE_OFF;
-
-	LOG_INF("addr 0x%04x set to %s", bt_mesh_model_elem(model)->addr, (LED_STATE_ON == new_state) ? "on" : "off");
-
-	old_state = board_led_get(LED_ALIAS_BULB);
-	if (old_state == new_state) {
-		LOG_INF("no need to update");
-		return;
+	if (0x01 == net_buf_simple_pull_u8(buf)) {
+		LOG_INF("addr 0x%04x set to on", bt_mesh_model_elem(model)->addr);
+		led0_state = LED_STATE_ON;
+	} else {
+		LOG_INF("addr 0x%04x set to off", bt_mesh_model_elem(model)->addr);
+		led0_state = LED_STATE_OFF;
 	}
-	board_led_set(LED_ALIAS_BULB, new_state);
 
 	/*
 	 * If a server has a publish address, it is required to
@@ -69,12 +67,9 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
 	 * Only publish if there is an assigned address
 	 */
 	if (BT_MESH_ADDR_UNASSIGNED != model->pub->addr) {
-		LOG_INF("publish last %s cur %s",
-			(LED_STATE_ON == old_state) ? "on" : "off",
-			(LED_STATE_ON == new_state) ? "on" : "off");
 		msg = model->pub->msg;
 		bt_mesh_model_msg_init(msg, BT_MESH_MODEL_OP_2(0x82, 0x04));
-		net_buf_simple_add_u8(msg, (LED_STATE_ON == new_state) ? 0x01 : 0x00);
+		net_buf_simple_add_u8(msg, (LED_STATE_ON == led0_state) ? 0x01 : 0x00);
 		bt_mesh_model_publish(model);
 	}
 }
@@ -191,7 +186,6 @@ void main(void)
 	int err;
 
 	LOG_INF("Initializing ...");
-	board_init();
 
 	/* Initialize the Bluetooth Subsystem */
 	err = bt_enable(bt_ready);
@@ -203,6 +197,5 @@ void main(void)
 
 	while (1) {
 		k_msleep(700);
-		board_led_trigger(LED_ALIAS_INDICATOR);
 	}
 }
